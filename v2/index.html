@@ -1,0 +1,1080 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>小猫去找小鱼</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap">
+<style>
+/* Layout: full-screen canvas runner; HUD as washi tape + chips; every dialog is a taped sticky note. Single deliberate pink world (no dark variant). */
+:root{
+  --sakura:#FF9EB8; --rose:#E8668C; --cream:#FFF7F2; --ink:#6B3B4E;
+  --mint:#A8E6D2; --butter:#FFE9A3; --paper:#FFFDF8; --dim:rgba(107,59,78,.30);
+  --font:'ZCOOL KuaiLe','PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+  color-scheme:light;
+}
+html,body{height:100%;overflow:hidden;background:#FFE4EC;color:var(--ink);font-family:var(--font);
+  -webkit-user-select:none;user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+#stage{position:fixed;inset:0}
+#cv{width:100%;height:100%;display:block;touch-action:none}
+button{font-family:var(--font)}
+
+/* HUD */
+#hud{position:fixed;top:0;left:0;right:0;z-index:5;pointer-events:none;
+  padding-top:calc(env(safe-area-inset-top,0px) + 10px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:10px}
+.hud-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.tape{font-size:17px;padding:6px 16px;color:var(--ink);transform:rotate(-2deg);
+  background:repeating-linear-gradient(-45deg,rgba(255,158,184,.85) 0 8px,rgba(255,214,226,.9) 8px 16px);
+  clip-path:polygon(0 8%,4% 0,8% 10%,12% 0,100% 0,96% 12%,100% 25%,96% 40%,100% 55%,96% 70%,100% 85%,96% 100%,0 100%,4% 85%,0 70%,4% 55%,0 40%,4% 25%)}
+.stats{display:flex;gap:8px;align-items:center}
+.chip{background:var(--paper);border:2px solid var(--ink);border-radius:999px;padding:4px 12px;font-size:16px;white-space:nowrap;font-variant-numeric:tabular-nums}
+#mute{pointer-events:auto;background:var(--paper);border:2px solid var(--ink);border-radius:50%;width:36px;height:36px;font-size:16px;cursor:pointer;padding:0}
+.prog{display:flex;align-items:center;gap:8px}
+.prog .lbl{font-size:13px;background:var(--paper);border:2px solid var(--ink);border-radius:8px;padding:1px 8px;white-space:nowrap}
+.track{position:relative;flex:1;height:12px;border:2px solid var(--ink);border-radius:999px;background:rgba(255,253,248,.85)}
+.fill{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:999px;background:var(--sakura)}
+.mk{position:absolute;top:50%;left:0;transform:translate(-50%,-50%);font-size:20px;line-height:1}
+.end{position:absolute;right:-6px;top:50%;transform:translateY(-50%);font-size:18px;line-height:1}
+
+/* Bubbles, toasts, coach */
+#bubble{position:fixed;z-index:6;top:calc(env(safe-area-inset-top,0px) + 96px);right:max(16px,env(safe-area-inset-right,0px));
+  max-width:min(70%,300px);background:var(--paper);border:2.5px solid var(--ink);border-radius:18px 18px 4px 18px;
+  padding:8px 14px;font-size:17px;box-shadow:0 3px 0 var(--ink);animation:pop .35s ease-out;pointer-events:none}
+#bubble .who{display:inline-block;background:var(--butter);border-radius:6px;padding:0 6px;margin-right:6px;font-size:14px}
+#toast{position:fixed;z-index:7;left:50%;top:32%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);
+  text-align:center;background:var(--paper);border:2.5px solid var(--ink);border-radius:16px;padding:10px 18px;
+  font-size:19px;line-height:1.5;box-shadow:0 4px 0 var(--ink);animation:pop .35s ease-out;pointer-events:none}
+#coach{position:fixed;inset:0;z-index:8;background:var(--dim);display:flex;align-items:center;justify-content:center;pointer-events:none;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+#coach[hidden]{display:none!important}
+.coach-box{background:var(--paper);border:3px solid var(--ink);border-radius:20px;padding:18px 22px 14px;text-align:center;
+  box-shadow:0 6px 0 var(--ink);max-width:340px;animation:pop .3s ease-out}
+.c-title{font-size:24px;margin-bottom:6px}
+.c-sub{font-size:18px;line-height:1.6}
+.hand{font-size:48px;margin-top:6px;animation:tap 1s ease-in-out infinite}
+.c-foot{font-size:14px;opacity:.75;margin-top:2px}
+#hint{position:fixed;z-index:5;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 18px);
+  background:var(--paper);border:2px solid var(--ink);border-radius:999px;padding:6px 16px;font-size:16px;white-space:nowrap;
+  animation:breathe 2.2s ease-in-out infinite;pointer-events:none}
+
+/* Cards */
+#overlay{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;overflow-y:auto;
+  background:rgba(255,228,236,.45);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);
+  padding-block:calc(env(safe-area-inset-top,0px) + 30px) calc(env(safe-area-inset-bottom,0px) + 24px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+#overlay[hidden]{display:none!important}
+.card{position:relative;width:min(400px,100%);margin:auto;padding:30px 22px 24px;text-align:center;
+  background-color:var(--butter);
+  background-image:linear-gradient(rgba(232,102,140,.10) 1px,transparent 1px),linear-gradient(90deg,rgba(232,102,140,.10) 1px,transparent 1px);
+  background-size:18px 18px;border:2.5px solid var(--ink);border-radius:6px;
+  box-shadow:6px 7px 0 rgba(107,59,78,.20);transform:rotate(-1.2deg);animation:drop .45s cubic-bezier(.2,1.4,.4,1)}
+.card.pink{background-color:#FFE1EA}
+.card.white{background-color:var(--paper)}
+.card::before{content:"";position:absolute;top:-15px;left:50%;width:120px;height:28px;margin-left:-60px;transform:rotate(3deg);
+  background:repeating-linear-gradient(45deg,rgba(255,158,184,.8) 0 8px,rgba(255,255,255,.7) 8px 16px);opacity:.95}
+.card h1{font-size:38px;font-weight:400;margin:4px 0 10px;color:var(--rose);text-wrap:balance;letter-spacing:.04em}
+.card h2{font-size:30px;font-weight:400;margin:2px 0 12px;text-wrap:balance}
+.card p{font-size:18px;line-height:1.65;margin:0 0 14px}
+.eyebrow{display:inline-block;font-size:15px;letter-spacing:.12em;background:var(--paper);border:2px solid var(--ink);border-radius:999px;padding:2px 12px}
+.from{margin-top:14px;font-size:15px;opacity:.8}
+.btn{display:inline-block;font-size:22px;padding:11px 30px;background:var(--rose);color:#fff;border:2.5px solid var(--ink);
+  border-radius:999px;box-shadow:0 4px 0 var(--ink);cursor:pointer;transition:transform .1s}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+.btn:focus-visible,#mute:focus-visible{outline:3px dashed var(--rose);outline-offset:4px}
+.btn.ghost{background:var(--paper);color:var(--ink)}
+.howto{list-style:none;padding:0;margin:4px 0 18px;display:flex;flex-direction:column;gap:10px;text-align:left}
+.howto li{display:grid;grid-template-columns:58px 1fr;align-items:center;gap:8px;background:rgba(255,253,248,.85);
+  border:2px solid var(--ink);border-radius:12px;padding:8px 10px;font-size:15px;line-height:1.45}
+.howto b{font-weight:400;font-size:18px;color:var(--rose)}
+.howto .ic{font-size:26px;text-align:center;white-space:nowrap}
+.rows{display:flex;flex-direction:column;gap:8px;margin:0 0 14px;text-align:left}
+.rows div{background:rgba(255,253,248,.85);border:2px solid var(--ink);border-radius:12px;padding:8px 12px;font-size:17px;line-height:1.5}
+.rows .lbl{display:inline-block;min-width:4.2em;color:var(--rose)}
+.tip{background:var(--paper);border:2px dashed var(--rose);border-radius:12px;padding:8px 12px}
+.note{font-size:24px!important;line-height:1.6!important;color:var(--rose);margin:10px 0 16px!important}
+.statline{font-size:16px;margin-bottom:18px;display:flex;justify-content:center;gap:14px;flex-wrap:wrap}
+.statline span{background:var(--paper);border:2px solid var(--ink);border-radius:999px;padding:2px 12px}
+.stamp{position:absolute;right:12px;bottom:12px;width:66px;height:66px;border:3px solid var(--rose);border-radius:50%;
+  color:var(--rose);transform:rotate(-16deg);display:grid;place-content:center;font-size:18px;line-height:1.1;opacity:.85}
+.stamp small{display:block;font-size:10px;letter-spacing:.1em}
+.letter{text-align:left;white-space:pre-wrap;font-size:19px;line-height:34px;min-height:340px;margin:0 0 14px;
+  background-image:repeating-linear-gradient(transparent 0 33px,rgba(232,102,140,.28) 33px 34px)}
+.letter .cursor{display:inline-block;width:2px;height:20px;background:var(--rose);vertical-align:-3px;animation:blink 1s steps(1) infinite}
+.skip{font-size:14px;opacity:.7;margin-top:-6px;margin-bottom:10px}
+.q{font-size:28px;line-height:1.5;color:var(--rose);margin:8px 0 22px;text-wrap:balance}
+.yesno{display:flex;gap:16px;justify-content:center;align-items:center;min-height:70px}
+#bYes{transition:transform .25s}
+#bNo{transition:left .18s,top .18s}
+#bNo.flee{position:fixed;z-index:20}
+.names{font-size:34px;color:var(--rose);margin:6px 0 12px;letter-spacing:.06em}
+.secret{background:var(--paper);border:2px solid var(--ink);border-radius:4px;padding:10px 12px;margin:0 auto 16px;max-width:280px;
+  transform:rotate(2deg);font-size:18px;line-height:1.5;box-shadow:3px 3px 0 rgba(107,59,78,.18)}
+.secret small{display:block;font-size:12px;opacity:.7}
+
+@keyframes pop{from{transform:translateX(var(--tx,0)) scale(.6);opacity:0}to{transform:translateX(var(--tx,0)) scale(1);opacity:1}}
+#toast{--tx:-50%}
+@keyframes drop{from{transform:translateY(-30px) rotate(-6deg);opacity:0}to{transform:rotate(-1.2deg);opacity:1}}
+@keyframes tap{0%,100%{transform:translateY(0)}50%{transform:translateY(10px) scale(.92)}}
+@keyframes breathe{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.06)}}
+@keyframes blink{50%{opacity:0}}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important}}
+@media (max-height:620px){.card{padding:24px 18px 18px}.howto li{padding:5px 8px}.letter{min-height:0}}
+</style>
+<style>[hidden]{display:none!important}body{margin:0}</style>
+</head>
+<body>
+
+<div id="stage"><canvas id="cv"></canvas></div>
+
+<div id="hud" hidden>
+  <div class="hud-row">
+    <div class="tape" id="lvlTag">第1关 · 樱花小路</div>
+    <div class="stats">
+      <span class="chip" id="pwChip" hidden></span>
+      <span class="chip" id="hearts">❤️❤️❤️</span>
+      <span class="chip">🐟 <b id="fishN">0</b></span>
+      <button id="mute" aria-label="开关声音">🔊</button>
+    </div>
+  </div>
+  <div class="prog"><span class="lbl">离宇宇</span><div class="track"><div class="fill" id="progFill"></div><span class="mk" id="progCat">🐱</span><span class="end">🐶</span></div></div>
+</div>
+<div id="bubble" hidden><span class="who">宇宇</span><span id="bubbleTxt"></span></div>
+<div id="toast" hidden></div>
+<div id="coach" hidden><div class="coach-box"><div class="c-title" id="coachTitle"></div><div class="c-sub" id="coachSub"></div><div class="hand" id="coachHand">👆</div><div class="c-foot">（游戏暂停中，点一下屏幕继续）</div></div></div>
+<div id="hint" hidden>👆 点屏幕任意位置 = 跳</div>
+<div id="overlay" hidden><div class="card" id="card"></div></div>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d');
+const INK = '#6B3B4E', PINK = '#FFB3C7', BELLY = '#FFE6EC', ROSE = '#E8668C';
+const GRAV = 1300, J1 = 520, J2 = 460, ACT = 360, CAT_SX = 0.26, FISH_PER = 104;
+
+const LEVELS = [
+  {name:'樱花小路', len:4200, speed:145, types:['puddle'], gap:[540,700], avoid:'💧 小水坑',
+   tip:'看到水坑，点一下屏幕就能跳过去。第一次会有提示，别担心～', note:'小猫最喜欢小鱼，<br>我最喜欢你'},
+  {name:'下雨天', len:4600, speed:150, types:['puddle','snail'], gap:[480,640], avoid:'💧 水坑　🐌 小蜗牛',
+   tip:'小蜗牛会慢慢爬过来，像跳水坑一样跳过去就好。', note:'以后下雨天，<br>我都给你撑伞'},
+  {name:'甜品街', len:4800, speed:155, types:['yarn','puddle','snail'], gap:[460,620], avoid:'🧶 毛线球　💧 水坑　🐌 蜗牛',
+   tip:'毛线球会滚向你，看到它就早一点点跳。', note:'世界上所有的甜，<br>都不如你笑一下'},
+  {name:'晚安小镇', len:5000, speed:160, types:['cucumber','yarn','puddle'], gap:[440,600], avoid:'🥒 小黄瓜　🧶 毛线球　💧 水坑',
+   tip:'小猫最怕小黄瓜啦，看到就跳过去！', note:'每天的晚安，<br>我都想只对你说'},
+  {name:'星空回家路', len:5400, speed:165, types:['puddle','snail','yarn','cucumber'], gap:[430,590], avoid:'前面遇到过的都会出现',
+   tip:'最后一关啦，宇宇就在路的尽头等你。', note:''},
+];
+const FEATS = [
+  {spring:0, plat:0, pw:['magnet'], news:'🌿 猫薄荷：吃到后小鱼会自己飞过来'},
+  {spring:1, plat:0, pw:['magnet','shield'], news:'🍄 蘑菇蹦床：跑上去会弹得超高<br>🫧 爱心泡泡：能帮你挡一次'},
+  {spring:1, plat:1, pw:['shield','magnet'], news:'🍪 饼干台子：跳上去可以在上面走'},
+  {spring:1, plat:2, pw:['magnet','shield'], news:'更多云朵台子和蘑菇蹦床'},
+  {spring:2, plat:1, pw:['shield','magnet'], news:'前面所有好玩的东西都在这里'},
+];
+const LOVE = [
+  ['第一次见你，就觉得你好特别','你笑起来的时候，我的世界就亮了','想把所有可爱的东西都送给你'],
+  ['下雨天，想和你窝在一起','牵着你的手，阴天也是晴天','你是我每天最想见的人'],
+  ['你是我吃过最甜的糖','想和你把每家甜品店都吃一遍','今天也偷偷多喜欢了你一点'],
+  ['每天睡前，最想听到你的声音','做梦都会梦到你','晚安，我的小鱼'],
+  ['谢谢你出现在我的生命里','想和你一起看很多很多次星星','以后的每一天，都想和你一起过'],
+];
+const SPRING = 700;
+const OBS_NAME = {puddle:'水坑', wide:'大水坑', snail:'小蜗牛', yarn:'毛线球', cucumber:'小黄瓜'};
+const FIRST_TIP = {
+  snail:'小蜗牛爬过来啦 🐌<br>点一下跳过去～',
+  yarn:'毛线球滚过来啦 🧶<br>看准了，跳！',
+  cucumber:'是小黄瓜 🥒<br>小猫最怕它了，快跳过去',
+  wide:'前面的水坑有点宽 💧<br>跳起来后，在空中再点一下更稳',
+  spring:'前面是蘑菇蹦床 🍄<br>跑上去就会弹得超高！',
+  plat:'空中有台子 🍪<br>跳上去可以在上面走',
+  magnet:'前面有猫薄荷 🌿<br>吃到后小鱼会自己飞过来',
+  shield:'前面有爱心泡泡 🫧<br>吃到能帮你挡一次碰撞',
+  gold:'金色的是情话鱼 💌<br>吃到会有一句悄悄话'
+};
+const DOG_LINES = ['小鱼加油！','我在前面等你哦','今天也很想你','慢慢来，我一直都在','你认真的样子好可爱','跑累了就想想我嘛','有我在，什么都不用怕','再往前一点点就见到我啦'];
+const THEMES = [
+  {sky:['#FFD9E5','#FFF4EA'], grid:'rgba(232,102,140,.09)', ground:'#F7C3D1', lip:'#EC97AF', dark:false},
+  {sky:['#C3C7E2','#EFE7F2'], grid:'rgba(110,100,160,.10)', ground:'#BDB7D6', lip:'#9C96C4', dark:false},
+  {sky:['#FFE6C8','#FFE0EC'], grid:'rgba(232,140,90,.10)', ground:'#F6D3A2', lip:'#E7B171', dark:false},
+  {sky:['#272453','#6A5B9C'], grid:'rgba(255,255,255,.05)', ground:'#3D3769', lip:'#5A5093', dark:true},
+  {sky:['#10103A','#3E2F74'], grid:'rgba(255,255,255,.045)', ground:'#29255A', lip:'#4C4496', dark:true},
+];
+
+let W, H, dpr, S, VW, VH, GY;
+function resize(){
+  W = innerWidth; H = innerHeight; dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr);
+  S = Math.min(W/420, H/380); VW = W/S; VH = H/S;
+  GY = Math.min(VH - 84, VH*0.5 + 150);
+}
+addEventListener('resize', resize); resize();
+
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const hsh = n => { const x = Math.sin(n*127.1 + 311.7)*43758.5453; return x - Math.floor(x); };
+
+/* ---------- state ---------- */
+const G = {
+  state:'title', lvl:0, t:0, animT:0, camX:0, ts:1,
+  cat:{x:0,h:0,vy:0,ground:true,jumps:0}, lives:3, maxLives:3, inv:0, shake:0,
+  obs:[], fish:[], dew:null, levelEaten:0, levelDew:false,
+  done:[0,0,0,0,0], dews:[false,false,false,false,false], loves:[0,0,0,0,0],
+  plats:[], springs:[], pws:[], magnet:0, shield:false, combo:0, rainDone:false, rainT:0, levelLove:0,
+  tut:{mode:null, jumpDone:false, dewDone:false, praise:false, fishTip:false},
+  tipShown:{}, bubbleT:6, nearWarned:false, parts:[], floats:[], amb:[], shoot:null,
+  meetT:0, letterShown:false, easy:false
+};
+
+function makeObs(type, x0, speed){
+  const o = {type, x:x0, x0, active:false, hit:false, seen:false, rot:0, v:0, hue:hsh(x0)};
+  if(type==='puddle'){o.w=46; o.half=16;}
+  else if(type==='wide'){o.w=92; o.half=34;}
+  else if(type==='snail'){o.w=34; o.hh=22; o.v=24;}
+  else if(type==='yarn'){o.w=30; o.hh=30; o.v=70;}
+  else if(type==='cucumber'){o.w=20; o.hh=38;}
+  o.meet = o.v ? x0 - o.v*ACT/(speed + o.v) : x0;
+  return o;
+}
+function buildLevel(i){
+  const L = LEVELS[i], F = FEATS[i], r = rng(4242 + i*977), obs = [];
+  let x = i===0 ? 640 : 520; const end = L.len - 420;
+  while(x < end){
+    const type = L.types[Math.floor(r()*L.types.length)];
+    obs.push(makeObs(type, x, L.speed));
+    x += L.gap[0] + r()*(L.gap[1]-L.gap[0]);
+  }
+  if(i===4){ const k = Math.floor(obs.length*0.55); obs[k] = makeObs('wide', obs[k].x0, L.speed); }
+  const gaps = [];
+  for(let k=0;k<obs.length-1;k++) gaps.push({a:obs[k].meet, b:obs[k+1].meet, used:false});
+  let dewX = L.len*0.5, bd = 1e9, dg = null;
+  const target = L.len*(i===0 ? 0.42 : 0.55);
+  for(const g of gaps){ if(g.b - g.a < 380) continue; const m = (g.a + g.b)/2, dd = Math.abs(m - target); if(dd < bd){ bd = dd; dewX = m; dg = g; } }
+  if(dg) dg.used = true;
+  const r2 = rng(99 + i*31);
+  const take = minW => { const c = gaps.filter(g => !g.used && g.b - g.a >= minW && g.a > 700); if(!c.length) return null; const g = c[Math.floor(r2()*c.length)]; g.used = true; return g; };
+  const springs = [], plats = [], pws = [];
+  for(let n=0;n<F.spring;n++){ const g = take(470); if(g) springs.push({x:g.a + 120, sq:0, seen:false}); }
+  for(let n=0;n<F.plat;n++){ const g = take(500); if(g) plats.push({x0:g.a + 170, x1:g.a + 330, h:72, seen:false}); }
+  for(const type of F.pw){ const g = take(400); if(g) pws.push({x:(g.a + g.b)/2, h:30, type, got:false, seen:false}); }
+  const fish = [], f0 = 260, f1 = L.len - 160, goldIdx = [26, 55, 84];
+  for(let n=0;n<FISH_PER;n++){
+    const fx = f0 + (f1-f0)*n/(FISH_PER-1);
+    let lift = 0;
+    for(const o of obs){
+      const Hs = o.type==='wide' ? 100 : 72, top = o.type==='wide' ? 94 : 86;
+      const d = Math.abs(fx - o.meet);
+      if(d < Hs) lift = Math.max(lift, top*(1+Math.cos(Math.PI*d/Hs))/2);
+    }
+    for(const sp of springs){ const tt = (fx - sp.x)/L.speed; if(tt > 0){ const hh = SPRING*tt - GRAV/2*tt*tt; if(hh > 0) lift = Math.max(lift, hh); } }
+    for(const p of plats){
+      if(fx >= p.x0 - 10 && fx <= p.x1) lift = Math.max(lift, p.h);
+      else if(fx > p.x0 - 90 && fx < p.x0 - 10) lift = Math.max(lift, p.h + 14*Math.sin(Math.PI*(fx - (p.x0 - 90))/80));
+    }
+    fish.push({x:fx, h:20+lift, got:false, gold:goldIdx.includes(n), c:['#FF9A62','#FF8FA8','#7FC8F0'][n%3]});
+  }
+  return {obs, fish, dew:{x:dewX, h:165, got:false}, springs, plats, pws};
+}
+
+/* ---------- audio ---------- */
+let AC = null, muted = false;
+function unlockAudio(){ if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } if(AC && AC.state==='suspended') AC.resume(); }
+function beep(f, d, type='sine', vol=.07, slide){
+  if(muted || !AC) return;
+  try{
+    const t = AC.currentTime, o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t);
+    if(slide) o.frequency.exponentialRampToValueAtTime(slide, t+d);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t+d);
+    o.connect(g).connect(AC.destination); o.start(t); o.stop(t+d+.02);
+  }catch(e){}
+}
+const sfx = {
+  jump(){beep(420,.16,'sine',.06,760);}, jump2(){beep(620,.16,'sine',.06,1100);},
+  fish(){beep(1180,.08,'triangle',.05); setTimeout(()=>beep(1560,.08,'triangle',.04),55);},
+  dew(){[880,1100,1320,1760].forEach((f,i)=>setTimeout(()=>beep(f,.14,'triangle',.05),i*70));},
+  hurt(){beep(300,.25,'square',.04,150);},
+  boing(){beep(200,.32,'sine',.08,700);},
+  shield(){beep(760,.22,'triangle',.06,320);},
+  win(){[660,784,988,1318].forEach((f,i)=>setTimeout(()=>beep(f,.2,'triangle',.06),i*110));}
+};
+$('mute').addEventListener('click', e => { muted = !muted; e.currentTarget.textContent = muted ? '🔇' : '🔊'; });
+
+/* ---------- UI helpers ---------- */
+let toastTimer = 0, bubbleTimer = 0;
+function showToast(html, ms=2400){ const t = $('toast'); t.innerHTML = html; t.hidden = false; t.style.animation='none'; void t.offsetWidth; t.style.animation=''; clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.hidden=true, ms); }
+function hideToast(){ clearTimeout(toastTimer); $('toast').hidden = true; }
+function showBubble(text, ms=2800){ const b = $('bubble'); $('bubbleTxt').textContent = text; b.hidden = false; b.style.animation='none'; void b.offsetWidth; b.style.animation=''; clearTimeout(bubbleTimer); bubbleTimer = setTimeout(()=>b.hidden=true, ms); }
+function setCoach(title, sub, hand){ $('coachTitle').innerHTML = title; $('coachSub').innerHTML = sub; $('coachHand').textContent = hand; $('coach').hidden = false; hideToast(); }
+function hideCoach(){ $('coach').hidden = true; }
+function showCard(html, cls=''){ const c = $('card'); c.className = 'card ' + cls; c.innerHTML = html; $('overlay').hidden = false; c.style.animation='none'; void c.offsetWidth; c.style.animation=''; const b = c.querySelector('.btn'); if(b) setTimeout(()=>{ try{ b.focus({preventScroll:true}); }catch(e){} }, 50); }
+function hideCard(){ $('overlay').hidden = true; }
+function on(id, fn){ const el = $(id); if(el) el.addEventListener('click', e => { unlockAudio(); fn(e); }); }
+
+let hudCache = {};
+function updateHUD(){
+  const L = LEVELS[G.lvl];
+  const total = G.done.reduce((a,b,i)=> a + (i < G.lvl ? b : 0), 0) + G.levelEaten;
+  const hearts = '❤️'.repeat(Math.max(0,G.lives)) + '🤍'.repeat(Math.max(0,G.maxLives - G.lives));
+  const tag = `第${G.lvl+1}关 · ${L.name}`;
+  if(hudCache.h !== hearts){ $('hearts').textContent = hearts; hudCache.h = hearts; }
+  if(hudCache.f !== total){ $('fishN').textContent = total; hudCache.f = total; }
+  if(hudCache.t !== tag){ $('lvlTag').textContent = tag; hudCache.t = tag; }
+  const p = Math.max(0, Math.min(1, G.cat.x / L.len));
+  $('progFill').style.width = (p*100) + '%';
+  $('progCat').style.left = (p*100) + '%';
+  const pw = (G.shield ? '🫧' : '') + (G.magnet > 0 ? ` 🌿${Math.ceil(G.magnet)}s` : '');
+  if(hudCache.pw !== pw){ hudCache.pw = pw; $('pwChip').textContent = pw.trim(); $('pwChip').hidden = !pw; }
+}
+function totalFish(){ return G.done.reduce((a,b)=>a+b,0); }
+
+/* ---------- flow ---------- */
+function showTitle(){
+  G.state = 'title'; G.lvl = 0; $('hud').hidden = true; $('hint').hidden = true;
+  showCard(`<div class="eyebrow">送给 小鱼</div>
+    <h1>小猫去找小鱼</h1>
+    <p>一只粉色小猫，一路吃着小鱼，<br>去找在路的尽头等她的小狗。</p>
+    <button class="btn" id="bStart">开始游戏</button>`, 'pink');
+  on('bStart', showHowto);
+}
+function showHowto(){
+  showCard(`<h2>怎么玩？</h2>
+    <ul class="howto">
+      <li><span class="ic">🐱</span><span><b>小猫会自己往前跑</b><br>你不用管方向，只管跳</span></li>
+      <li><span class="ic">👆</span><span><b>点一下屏幕 = 跳一下</b><br>屏幕上哪里都可以点</span></li>
+      <li><span class="ic">👆👆</span><span><b>跳起来后再点一下</b><br>能在空中再跳一次，跳得更高</span></li>
+      <li><span class="ic">🐟</span><span><b>碰到小鱼就吃掉</b><br>小鱼排成拱门的地方，就是要跳的地方</span></li>
+      <li><span class="ic">❤️</span><span><b>一共有 3 颗心</b><br>碰到障碍只会少一颗，不会马上输</span></li>
+    </ul>
+    <button class="btn" id="bGot">我知道啦</button>`, 'white');
+  on('bGot', () => startLevel(0, false));
+}
+function startLevel(i, easy){
+  G.lvl = i; G.easy = easy;
+  const b = buildLevel(i); G.obs = b.obs; G.fish = b.fish; G.dew = b.dew; G.springs = b.springs; G.plats = b.plats; G.pws = b.pws;
+  G.magnet = 0; G.shield = false; G.combo = 0; G.rainDone = false; G.rainT = 0; G.levelLove = 0;
+  G.cat = {x:0, h:0, vy:0, ground:true, jumps:0, plat:null};
+  G.maxLives = easy ? 5 : 3; G.lives = G.maxLives; G.inv = 0; G.ts = 1;
+  G.levelEaten = 0; G.levelDew = false; G.bubbleT = i===0 ? 14 : 5; G.nearWarned = false;
+  G.camX = -VW*CAT_SX; G.amb = []; G.parts = []; G.floats = [];
+  G.state = 'intro'; hudCache = {}; $('hud').hidden = false; updateHUD();
+  const L = LEVELS[i];
+  showCard(`<div class="eyebrow">第 ${i+1} 关 / 共 5 关</div>
+    <h2>${L.name}</h2>
+    <div class="rows">
+      <div><span class="lbl">要躲开</span>${L.avoid}</div>
+      <div><span class="lbl">要做的</span>${i===4 ? '跑到宇宇身边 🐶' : '一路吃小鱼，跑到终点的 ❤️ 旗子'}</div>
+      <div><span class="lbl">新玩意</span>${FEATS[i].news}</div>
+      <div><span class="lbl">彩蛋</span>3 条金色 💌情话鱼，高处还有 1 颗 ✨露珠</div>
+    </div>
+    <p class="tip">💡 ${L.tip}</p>
+    ${easy ? '<p>宇宇多送你两颗心，这次有 <b>5 颗 ❤️</b></p>' : ''}
+    <button class="btn" id="bGo">准备好啦！</button>`);
+  on('bGo', () => {
+    hideCard(); G.state = 'play';
+    $('hint').hidden = i > 1;
+    if(i===0 && !G.tut.jumpDone) showToast('小猫会自己往前跑<br>你只要负责点屏幕跳就好～', 3200);
+    else showToast(`第 ${i+1} 关，出发！`, 1400);
+  });
+}
+function levelClear(){
+  G.state = 'clear'; G.ts = 0; $('hint').hidden = true; hideCoach();
+  G.done[G.lvl] = G.levelEaten; G.dews[G.lvl] = G.levelDew; G.loves[G.lvl] = G.levelLove;
+  sfx.win(); confetti(40);
+  const L = LEVELS[G.lvl];
+  showCard(`<div class="eyebrow">第 ${G.lvl+1} 关 通关！</div>
+    <p class="note">${L.note}</p>
+    <div class="statline"><span>🐟 ${G.levelEaten} 条</span><span>💌 ${G.levelLove} / 3</span><span>✨ ${G.levelDew ? '露珠拿到啦' : '露珠没拿到'}</span></div>
+    <button class="btn" id="bNext">下一关 ▶</button>
+    <div class="stamp">通关<small>小鱼专属</small></div>`);
+  on('bNext', () => startLevel(G.lvl + 1, false));
+}
+function levelFail(){
+  G.state = 'retry'; G.ts = 0; $('hint').hidden = true; hideCoach(); hideToast();
+  showCard(`<h2>没关系 🐾</h2>
+    <p>宇宇说：<br>“我陪你再来一次。”</p>
+    <p>这次多送你两颗心，一共 <b>5 颗 ❤️</b></p>
+    <button class="btn" id="bRetry">再来一次</button>`, 'pink');
+  on('bRetry', () => startLevel(G.lvl, true));
+}
+
+/* ---------- input ---------- */
+function jump(){
+  const c = G.cat;
+  if(c.ground){ c.vy = J1; c.ground = false; c.jumps = 1; c.plat = null; sfx.jump(); puff(); }
+  else if(c.jumps < 2){ c.vy = J2; c.jumps = 2; sfx.jump2(); sparkle(VW*CAT_SX, GY - c.h - 10, 8, '#FFFFFF'); }
+}
+function tap(){
+  unlockAudio();
+  const m = G.tut.mode;
+  if(m==='jump'){ hideCoach(); G.ts = 1; G.tut.mode = null; G.tut.jumpDone = true; G.tut.praise = true; jump(); return; }
+  if(m==='dew1'){ jump(); G.ts = 0.3; setCoach('再点一下！', '趁小猫还在空中', '👆'); G.tut.mode = 'dew2'; return; }
+  if(m==='dew2'){ jump(); G.ts = 1; hideCoach(); G.tut.mode = null; G.tut.dewDone = true; return; }
+  if(G.ts === 0) return;
+  jump();
+}
+addEventListener('pointerdown', e => {
+  if(e.target.closest('#overlay') || e.target.closest('button')) return;
+  if(G.state === 'play'){ e.preventDefault(); tap(); }
+}, {passive:false});
+addEventListener('keydown', e => {
+  if(e.repeat) return;
+  if(e.code==='Space' || e.code==='ArrowUp' || e.code==='KeyW'){
+    if(G.state==='play'){ e.preventDefault(); tap(); }
+  }
+});
+
+/* ---------- effects ---------- */
+function puff(){ for(let i=0;i<6;i++) G.parts.push({x:VW*CAT_SX + (Math.random()-.5)*16, y:GY-2, vx:(Math.random()-.5)*60, vy:-Math.random()*40, life:.4, max:.4, kind:'dot', col:'rgba(255,255,255,.9)', s:3+Math.random()*3, g:0}); }
+function sparkle(x, y, n, col){ for(let i=0;i<n;i++){ const a = Math.random()*Math.PI*2, v = 60+Math.random()*120; G.parts.push({x, y, vx:Math.cos(a)*v, vy:Math.sin(a)*v, life:.6, max:.6, kind:'star', col, s:3+Math.random()*3, g:120}); } }
+function floatText(x, y, text, col, big){ G.floats.push({x, y, text, col, life:big ? 1.4 : 1, max:1, big}); }
+function confetti(n){ const cols = ['#FF9EB8','#E8668C','#FFE59A','#A8E6D2','#FFFFFF','#FF9A62']; for(let i=0;i<n;i++) G.parts.push({x:Math.random()*VW, y:-10 - Math.random()*80, vx:(Math.random()-.5)*60, vy:60+Math.random()*80, life:3, max:3, kind:Math.random()<.4?'heart':'rect', col:cols[i%cols.length], s:5+Math.random()*4, g:40, rot:Math.random()*6}); }
+function firework(x, y){ const cols = ['#FF9EB8','#E8668C','#FFE59A','#A8E6D2','#FF9A62']; const n = 16; for(let i=0;i<n;i++){ const a = i/n*Math.PI*2, v = 90+Math.random()*60; G.parts.push({x, y, vx:Math.cos(a)*v, vy:Math.sin(a)*v, life:1.4, max:1.4, kind:i%3===0?'fish':'heart', col:cols[i%cols.length], s:6+Math.random()*3, g:60, rot:a}); } beep(500+Math.random()*400,.3,'triangle',.03,1400); }
+
+/* ---------- update ---------- */
+function hurt(o){
+  const c = G.cat;
+  G.lives--; G.inv = 1.6; o.hit = true; G.shake = .3; G.combo = 0;
+  c.vy = 240; c.ground = false; c.jumps = 1; c.plat = null; sfx.hurt();
+  if(G.lives <= 0){ levelFail(); return; }
+  showToast(`哎呀，碰到${OBS_NAME[o.type]}了～<br>还有 ${G.lives} 颗心，没关系！`, 2000);
+}
+function onLand(){
+  if(G.tut.mode==='dew2'){ G.tut.mode = null; G.tut.dewDone = true; G.ts = 1; hideCoach(); if(!G.levelDew) showToast('差一点点～没关系<br>后面每一关都还有露珠', 2400); }
+  if(G.tut.praise){ G.tut.praise = false; showToast('跳得真好！就是这样 ✨<br>看到障碍就点一下', 2400); }
+}
+function eatFish(f){
+  f.got = true; G.levelEaten++; G.combo++; sfx.fish();
+  const dark = THEMES[G.lvl].dark, fx = f.x - G.camX, fy = GY - f.h;
+  sparkle(fx, fy, 5, '#FFE59A'); floatText(fx, fy - 10, '+1', dark ? '#FFE59A' : ROSE);
+  if(G.combo % 10 === 0) floatText(VW*CAT_SX + 6, GY - G.cat.h - 84, `连击 ×${G.combo}！`, dark ? '#FFFFFF' : '#FF6F91', true);
+  if(f.gold){
+    const line = LOVE[G.lvl][G.levelLove % 3]; G.levelLove++;
+    sfx.dew(); sparkle(fx, fy, 16, '#FFD54A');
+    showToast(`💌 情话鱼 ${G.levelLove}/3<br>${line}`, 3000);
+  } else if(!G.tut.fishTip){ G.tut.fishTip = true; if(!G.tut.mode) showToast('吃到小鱼啦 🐟<br>一路上的小鱼都可以吃哦', 2200); }
+}
+function tipOnce(key){ if(!G.tipShown[key] && FIRST_TIP[key]){ G.tipShown[key] = true; showToast(FIRST_TIP[key], 2600); } }
+function updatePlay(dt){
+  const L = LEVELS[G.lvl], c = G.cat, d = dt*G.ts;
+  G.animT += d;
+  c.x += L.speed*d;
+  if(c.plat && c.x > c.plat.x1 + 8){ c.plat = null; c.ground = false; c.vy = 0; c.jumps = 1; }
+  if(!c.ground){
+    const prevH = c.h;
+    c.vy -= GRAV*d; c.h += c.vy*d;
+    if(c.vy <= 0){
+      for(const p of G.plats){
+        if(c.x > p.x0 - 8 && c.x < p.x1 + 8 && prevH >= p.h - .5 && c.h <= p.h){ c.h = p.h; c.vy = 0; c.ground = true; c.jumps = 0; c.plat = p; onLand(); break; }
+      }
+    }
+    if(!c.ground && c.h <= 0){ c.h = 0; c.vy = 0; c.ground = true; c.jumps = 0; onLand(); }
+  }
+  if(G.inv > 0) G.inv -= d;
+  if(G.magnet > 0) G.magnet -= d;
+  const ahead = VW*0.62;
+  for(const sp of G.springs){
+    if(sp.sq > 0) sp.sq -= d*3;
+    if(!sp.seen && sp.x - c.x < ahead){ sp.seen = true; tipOnce('spring'); }
+    if(c.ground && !c.plat && Math.abs(c.x - sp.x) < 16){ c.vy = SPRING; c.ground = false; c.jumps = 1; sp.sq = 1; sfx.boing(); sparkle(sp.x - G.camX, GY - 18, 10, '#FFFFFF'); }
+  }
+  for(const p of G.plats) if(!p.seen && p.x0 - c.x < ahead){ p.seen = true; tipOnce('plat'); }
+  for(const p of G.pws) if(!p.seen && p.x - c.x < ahead){ p.seen = true; tipOnce(p.type); }
+  for(const o of G.obs){
+    if(o.v && !o.active && o.x - c.x < ACT) o.active = true;
+    if(o.active){ o.x -= o.v*d; o.rot += o.v*d/15; }
+    if(!o.seen && o.x - c.x < ahead){ o.seen = true; tipOnce(o.type); }
+  }
+  if(G.inv <= 0){
+    for(const o of G.obs){
+      if(o.hit) continue;
+      let hit = false;
+      if(o.type==='puddle' || o.type==='wide') hit = c.h < 5 && Math.abs(c.x - o.x) < o.half;
+      else hit = (c.x + 13 > o.x - o.w/2 + 3) && (c.x - 13 < o.x + o.w/2 - 3) && (c.h + 4 < o.hh - 2);
+      if(hit){
+        if(G.shield){ G.shield = false; o.hit = true; G.inv = 1; sfx.shield(); sparkle(VW*CAT_SX, GY - c.h - 28, 16, '#FFB3C7'); showToast('爱心泡泡帮你挡住啦 🫧', 1800); }
+        else { hurt(o); if(G.state !== 'play') return; }
+        break;
+      }
+    }
+  }
+  if(!G.rainDone && !G.tut.mode && c.x > L.len*0.68){ G.rainDone = true; G.rainT = 4; showToast('🐟 小鱼雨来啦！<br>跑过去就能接住', 2200); }
+  if(G.rainT > 0){
+    G.rainT -= d;
+    if(Math.random() < d*7){ const h0 = GY + 10; G.fish.push({x:c.x + 120 + Math.random()*260, h:h0, vh:-(h0 - 20)/(0.8 + Math.random()*0.4), rain:true, landT:0, got:false, c:['#FF9A62','#FF8FA8','#7FC8F0'][Math.floor(Math.random()*3)]}); }
+  }
+  const cy = c.h + 20;
+  for(const f of G.fish){
+    if(f.got || f.gone) continue;
+    if(f.gold && !f.seen && f.x - c.x < ahead){ f.seen = true; tipOnce('gold'); }
+    if(f.rain){ if(f.h > 20){ f.h = Math.max(20, f.h + f.vh*d); } else { f.landT += d; if(f.landT > 1.8){ f.gone = true; continue; } } }
+    if(G.magnet > 0 && !f.fly && f.x - c.x < 170 && f.x - c.x > -30) f.fly = true;
+    if(f.fly){
+      const dx = c.x - f.x, dy = cy - f.h, dist = Math.hypot(dx, dy), step = (520 + L.speed)*d;
+      if(dist <= step + 12){ eatFish(f); continue; }
+      f.x += dx/dist*step; f.h += dy/dist*step; continue;
+    }
+    if(Math.abs(f.x - c.x) < (f.rain ? 26 : 22) && (f.rain ? f.h < cy + 60 && f.h > cy - 40 : Math.abs(f.h - cy) < 28)) eatFish(f);
+  }
+  for(const p of G.pws){
+    if(p.got) continue;
+    if(Math.abs(p.x - c.x) < 24 && Math.abs(p.h - cy) < 32){
+      p.got = true; sfx.dew(); sparkle(p.x - G.camX, GY - p.h, 14, '#FFFFFF');
+      if(p.type==='magnet'){ G.magnet = 6; showToast('🌿 猫薄荷！<br>小鱼都会飞过来啦', 1800); }
+      else { G.shield = true; showToast('🫧 爱心泡泡！<br>能帮你挡一次', 1800); }
+    }
+  }
+  const dw = G.dew;
+  if(!dw.got){
+    const rad = G.tut.mode==='dew2' ? 60 : 32;
+    if(Math.hypot(dw.x - c.x, dw.h - cy) < rad){
+      dw.got = true; G.levelDew = true; sfx.dew();
+      const dx = dw.x - G.camX, dy = GY - dw.h;
+      sparkle(dx, dy, 18, '#BFEAFF'); floatText(dx, dy - 16, '✨ 露珠', '#5BB6E6');
+      showToast('收集到一颗露珠 ✨<br>小鱼喜欢的，我都记得', 2600);
+      if(G.tut.mode==='dew2'){ G.tut.mode = null; G.tut.dewDone = true; G.ts = 1; hideCoach(); }
+    }
+  }
+  if(G.lvl===0 && !G.tut.mode){
+    const o0 = G.obs[0];
+    if(!G.tut.jumpDone && c.ground && o0.x - c.x < 62){ G.ts = 0; G.tut.mode = 'jump'; setCoach('前面有个小水坑 💧', '点一下屏幕，小猫就会跳过去', '👆'); }
+    else if(G.tut.jumpDone && !G.tut.dewDone && !dw.got && c.ground && dw.x - c.x < 105 && dw.x - c.x > 60){
+      G.ts = 0; G.tut.mode = 'dew1'; setCoach('高处有一颗露珠 ✨', '先点一下跳起来，<br>在空中再点一下，就能跳得更高', '👆👆');
+    }
+  }
+  if(!G.tut.mode){
+    G.bubbleT -= dt;
+    if(G.bubbleT <= 0){ G.bubbleT = 7 + Math.random()*4; showBubble(DOG_LINES[Math.floor(Math.random()*DOG_LINES.length)]); }
+  }
+  if(!G.nearWarned && L.len - c.x < 520){ G.nearWarned = true; showBubble(G.lvl===4 ? '我看到你啦！快过来～' : '终点就在前面啦！'); }
+  G.camX = c.x - VW*CAT_SX;
+  if(G.lvl < 4 && c.x >= L.len) levelClear();
+  else if(G.lvl===4 && c.x >= L.len - 20) startMeet();
+}
+function startMeet(){
+  G.state = 'meet'; G.meetT = 0; G.letterShown = false; G.ts = 1;
+  $('hint').hidden = true; hideToast(); $('bubble').hidden = true;
+  G.done[4] = G.levelEaten; G.dews[4] = G.levelDew; G.loves[4] = G.levelLove;
+}
+function updateMeet(dt){
+  const c = G.cat, dogX = LEVELS[4].len + 60;
+  G.meetT += dt;
+  if(!c.ground){ c.vy -= GRAV*dt; c.h += c.vy*dt; if(c.h <= 0){ c.h = 0; c.vy = 0; c.ground = true; } }
+  if(c.x < dogX - 40){ c.x = Math.min(dogX - 40, c.x + 110*dt); G.animT += dt; }
+  else if(!G.arrived){ G.arrived = true; sfx.win(); }
+  const target = (c.x + dogX)/2 - VW/2;
+  G.camX += (target - G.camX)*Math.min(1, dt*2);
+  if(G.arrived && Math.random() < dt*5) G.parts.push({x:(c.x+dogX)/2 - G.camX + (Math.random()-.5)*50, y:GY-60, vx:(Math.random()-.5)*30, vy:-50-Math.random()*40, life:1.8, max:1.8, kind:'heart', col:Math.random()<.5?'#FF6F91':'#FF9EB8', s:6+Math.random()*5, g:-10});
+  if(G.meetT > 3.4 && !G.letterShown){ G.letterShown = true; showLetter(); }
+}
+
+/* ---------- ending ---------- */
+const LETTER = `小鱼：
+
+跑了这么远，辛苦啦。
+这一路上的每一条小鱼，
+都是我想对你说的一句喜欢。
+
+你开心的时候，我想陪你一起笑；
+你累了的时候，我想做那个在终点等你的人。
+
+以后的路还很长，
+下雨我撑伞，天黑我等你，
+你只要负责做我的小鱼就好。
+
+　　　　　　永远喜欢你的
+　　　　　　谢翔宇`;
+let typeTimer = 0;
+function showLetter(){
+  $('hud').hidden = true;
+  showCard(`<div class="letter" id="letterTxt"></div><div class="skip" id="skipTip">点一下信纸可以直接看完</div><button class="btn" id="bLetter" hidden>继续 ▶</button>`, 'white');
+  const el = $('letterTxt'); let i = 0;
+  const finish = () => { clearTimeout(typeTimer); el.textContent = LETTER; $('bLetter').hidden = false; $('skipTip').hidden = true; };
+  const step = () => {
+    i++; el.innerHTML = ''; el.textContent = LETTER.slice(0, i);
+    const cur = document.createElement('span'); cur.className = 'cursor'; el.appendChild(cur);
+    if(i >= LETTER.length){ finish(); return; }
+    const ch = LETTER[i-1];
+    typeTimer = setTimeout(step, ch==='\n' ? 260 : (ch==='，'||ch==='。'||ch==='；') ? 220 : 85);
+  };
+  step();
+  el.addEventListener('click', finish);
+  on('bLetter', showQuestion);
+}
+function showQuestion(){
+  showCard(`<p class="q">小鱼，<br>要一直做我的小鱼吗？</p>
+    <div class="yesno"><button class="btn" id="bYes">要！</button><button class="btn ghost" id="bNo">不要</button></div>`, 'pink');
+  const no = $('bNo'), yes = $('bYes');
+  const lines = ['不要','真的不要吗','再想想嘛','点不到吧～','只能选“要”啦','宇宇会哭的'];
+  let tries = 0;
+  const flee = e => {
+    if(e) e.preventDefault();
+    tries++;
+    const r = no.getBoundingClientRect();
+    no.classList.add('flee');
+    const pad = 20;
+    let nx, ny, guard = 0;
+    do {
+      nx = pad + Math.random()*(innerWidth - r.width - pad*2);
+      ny = pad + Math.random()*(innerHeight - r.height - pad*2);
+      guard++;
+    } while(guard < 20 && Math.abs(nx - r.left) < 90 && Math.abs(ny - r.top) < 60);
+    no.style.left = nx + 'px'; no.style.top = ny + 'px';
+    no.textContent = lines[Math.min(tries, lines.length-1)];
+    yes.style.transform = `scale(${Math.min(1 + tries*0.12, 1.7)})`;
+  };
+  no.addEventListener('pointerenter', e => { if(e.pointerType==='mouse') flee(); });
+  no.addEventListener('pointerdown', flee);
+  no.addEventListener('click', e => { e.preventDefault(); flee(); });
+  on('bYes', showFinal);
+}
+function showFinal(){
+  G.state = 'final'; G.fwT = 0;
+  for(let k=0;k<4;k++) setTimeout(()=>firework(VW*(0.2+Math.random()*0.6), GY*(0.2+Math.random()*0.35)), k*250);
+  const fish = totalFish(), allDew = G.dews.every(Boolean), dewN = G.dews.filter(Boolean).length, loveN = G.loves.reduce((a,b)=>a+b,0);
+  showCard(`<div class="eyebrow">约定好啦</div>
+    <div class="names">谢翔宇 ♥ 郑歆愉</div>
+    <p>你一共收集了 <b>${fish}</b> 条小鱼，<br>可我只想要你这一条。</p>
+    ${allDew ? `<div class="secret"><small>集齐 5 颗露珠的隐藏便签</small>你喜欢露思，我喜欢你 ✨</div>` : ''}
+    <p style="font-size:15px">💌 情话鱼 ${loveN} / 15　✨ 露珠 ${dewN} / 5${allDew ? '' : '<br>集齐 5 颗露珠会有一张隐藏便签哦'}</p>
+    <button class="btn" id="bAgain">再玩一次</button>
+    <div class="stamp">永远<small>小鱼专属</small></div>`);
+  on('bAgain', () => { G.done = [0,0,0,0,0]; G.dews = [false,false,false,false,false]; G.loves = [0,0,0,0,0]; G.arrived = false; startLevel(0, false); });
+}
+
+/* ---------- drawing helpers ---------- */
+function heartPath(x, y, s){
+  ctx.beginPath(); ctx.moveTo(x, y + s*.3);
+  ctx.bezierCurveTo(x, y, x - s*.5, y, x - s*.5, y + s*.3);
+  ctx.bezierCurveTo(x - s*.5, y + s*.6, x, y + s*.8, x, y + s);
+  ctx.bezierCurveTo(x, y + s*.8, x + s*.5, y + s*.6, x + s*.5, y + s*.3);
+  ctx.bezierCurveTo(x + s*.5, y, x, y, x, y + s*.3); ctx.closePath();
+}
+function drawFish(x, y, s, col, rot=0){
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(s, s);
+  ctx.lineJoin = 'round'; ctx.lineWidth = 1.8; ctx.strokeStyle = INK; ctx.fillStyle = col;
+  ctx.beginPath(); ctx.moveTo(-7, 0); ctx.lineTo(-15, -6); ctx.lineTo(-15, 6); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(0, 0, 10, 6.5, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(4.5, -1.5, 1.5, 0, 7); ctx.fill();
+  ctx.restore();
+}
+function circle(x, y, r){ ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); }
+function layer(par, spacing, fn){
+  const off = G.camX*par, k0 = Math.floor(off/spacing) - 1, k1 = Math.ceil((off + VW)/spacing) + 1;
+  for(let k=k0;k<=k1;k++) fn(k*spacing - off, k);
+}
+function earPath(ax, ay, tx, ty, bx, by2){ ctx.beginPath(); ctx.moveTo(ax, ay); ctx.quadraticCurveTo(tx - 1, ty - 1, tx, ty); ctx.quadraticCurveTo(tx + 1, ty + 1, bx, by2); ctx.closePath(); }
+function chibiFace(hx, hy, t, eyeDX){
+  const blink = (t % 3.4) < .13;
+  ctx.strokeStyle = '#4A2A38'; ctx.lineWidth = 2;
+  const eyes = [[hx - 6 + eyeDX, hy], [hx + 6 + eyeDX, hy]];
+  if(blink){
+    ctx.beginPath(); eyes.forEach(([ex, ey]) => { ctx.moveTo(ex - 3, ey); ctx.quadraticCurveTo(ex, ey + 2.5, ex + 3, ey); }); ctx.stroke();
+  } else eyes.forEach(([ex, ey]) => {
+    ctx.fillStyle = '#4A2A38'; ctx.beginPath(); ctx.ellipse(ex, ey, 3.3, 4, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff'; circle(ex - 1.1, ey - 1.6, 1.4); ctx.fill(); circle(ex + 1.2, ey + 1.5, .7); ctx.fill();
+  });
+  ctx.fillStyle = 'rgba(255,120,160,.45)';
+  ctx.beginPath(); ctx.ellipse(hx - 11 + eyeDX, hy + 6, 3.6, 2.2, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(hx + 11 + eyeDX, hy + 6, 3.6, 2.2, 0, 0, Math.PI*2); ctx.fill();
+}
+function drawCat(sx, by, t, air, alpha){
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(sx, by);
+  const OUT = '#7A4A5C', FUR = '#FFD0DC', FUR2 = '#FFB8CA', CREAMY = '#FFF3F5';
+  const run = Math.sin(t*14), bob = air ? 0 : Math.abs(Math.cos(t*14))*2;
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.strokeStyle = OUT; ctx.lineWidth = 2;
+  // tail
+  const sw = Math.sin(t*6)*3;
+  ctx.beginPath(); ctx.moveTo(-7, -12 - bob); ctx.bezierCurveTo(-20, -12, -22, -26 + sw, -15, -32 + sw);
+  ctx.lineWidth = 8; ctx.stroke(); ctx.strokeStyle = FUR; ctx.lineWidth = 4.2; ctx.stroke();
+  ctx.fillStyle = FUR2; circle(-15, -32 + sw, 3.2); ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 2;
+  // legs (two, upright stride)
+  const legs = air ? [[-4, -5, -3], [4, -7, 3]] : [[-3, -2 - Math.max(0, run)*3, run*-5], [4, -2 - Math.max(0, -run)*3, run*5]];
+  legs.forEach(([lx, ly, dx]) => {
+    ctx.beginPath(); ctx.moveTo(lx, -10 - bob); ctx.lineTo(lx + dx*.6, ly - 1);
+    ctx.lineWidth = 8; ctx.strokeStyle = OUT; ctx.stroke(); ctx.lineWidth = 4.4; ctx.strokeStyle = FUR; ctx.stroke();
+    ctx.lineWidth = 2; ctx.strokeStyle = OUT;
+    ctx.beginPath(); ctx.ellipse(lx + dx*.6 + 1.5, ly, 4.5, 3.2, 0, 0, Math.PI*2); ctx.fillStyle = FUR; ctx.fill(); ctx.stroke();
+  });
+  // body (upright bean)
+  ctx.beginPath(); ctx.ellipse(0, -18 - bob, 10.5, 11.5, 0, 0, Math.PI*2); ctx.fillStyle = FUR; ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(1.5, -16 - bob, 6, 7, 0, 0, Math.PI*2); ctx.fillStyle = CREAMY; ctx.fill();
+  // arms
+  const arm = air ? -1 : run;
+  [[-7, -arm], [7, arm]].forEach(([ax, a]) => {
+    ctx.beginPath(); ctx.ellipse(ax + a*2.5, -20 - bob + Math.abs(a)*1.5, 3.4, 5.2, a*.5, 0, Math.PI*2); ctx.fillStyle = FUR; ctx.fill(); ctx.stroke();
+  });
+  if(air){ ctx.beginPath(); ctx.ellipse(-7, -27, 3.4, 5.2, -.9, 0, Math.PI*2); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.ellipse(8, -27, 3.4, 5.2, .9, 0, Math.PI*2); ctx.fill(); ctx.stroke(); }
+  // head
+  const hx = 2, hy = -42 - bob;
+  ctx.fillStyle = FUR;
+  earPath(hx - 16, hy - 5, hx - 13, hy - 22, hx - 4, hy - 13); ctx.fill(); ctx.stroke();
+  earPath(hx + 4, hy - 13, hx + 13, hy - 22, hx + 16, hy - 5); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#FF9DB6';
+  earPath(hx - 13, hy - 8, hx - 12, hy - 18, hx - 7, hy - 12); ctx.fill();
+  earPath(hx + 7, hy - 12, hx + 12, hy - 18, hx + 13, hy - 8); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(hx, hy, 18, 15.5, 0, 0, Math.PI*2); ctx.fillStyle = FUR; ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(hx + 2, hy + 6, 11, 7, 0, 0, Math.PI*2); ctx.fillStyle = CREAMY; ctx.fill();
+  // bow
+  ctx.fillStyle = '#FF7FA3'; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.ellipse(hx + 11, hy - 16, 5, 3.4, -.6, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(hx + 18, hy - 11, 5, 3.4, -.6 + Math.PI/2, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  circle(hx + 14.5, hy - 13.5, 2.4); ctx.fill(); ctx.stroke();
+  chibiFace(hx, hy, t, 2);
+  ctx.fillStyle = '#FF7FA3'; ctx.beginPath(); ctx.ellipse(hx + 2, hy + 4, 1.6, 1.1, 0, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#4A2A38'; ctx.lineWidth = 1.3;
+  ctx.beginPath(); ctx.moveTo(hx - 1, hy + 6); ctx.quadraticCurveTo(hx + .5, hy + 8, hx + 2, hy + 6); ctx.quadraticCurveTo(hx + 3.5, hy + 8, hx + 5, hy + 6); ctx.stroke();
+  ctx.restore();
+}
+function drawDog(sx, by, t, jump){
+  ctx.save(); ctx.translate(sx, by - jump); ctx.scale(-1, 1);
+  const OUT = '#7A4A5C', FUR = '#FFF4E4', EAR = '#D9A77C', PATCH = '#F3D2AE';
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.strokeStyle = OUT; ctx.lineWidth = 2;
+  const w = Math.sin(t*16)*5;
+  ctx.beginPath(); ctx.moveTo(-7, -12); ctx.quadraticCurveTo(-18, -16 + w, -16, -26 + w);
+  ctx.lineWidth = 8; ctx.stroke(); ctx.strokeStyle = FUR; ctx.lineWidth = 4; ctx.stroke(); ctx.strokeStyle = OUT; ctx.lineWidth = 2;
+  [-4, 4].forEach(lx => {
+    ctx.beginPath(); ctx.moveTo(lx, -10); ctx.lineTo(lx, -3); ctx.lineWidth = 8; ctx.strokeStyle = OUT; ctx.stroke(); ctx.lineWidth = 4.4; ctx.strokeStyle = FUR; ctx.stroke();
+    ctx.lineWidth = 2; ctx.strokeStyle = OUT; ctx.beginPath(); ctx.ellipse(lx + 1.5, -2, 4.5, 3.2, 0, 0, Math.PI*2); ctx.fillStyle = FUR; ctx.fill(); ctx.stroke();
+  });
+  ctx.beginPath(); ctx.ellipse(0, -18, 11, 11.5, 0, 0, Math.PI*2); ctx.fillStyle = FUR; ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(-4, -16, 4.5, 4, 0, 0, Math.PI*2); ctx.fillStyle = PATCH; ctx.fill();
+  // arms raised, waving
+  const wave = Math.sin(t*8)*.35;
+  ctx.fillStyle = FUR;
+  ctx.beginPath(); ctx.ellipse(-8, -22, 3.4, 5.4, .3, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(10, -27, 3.4, 5.6, .9 + wave, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  // collar
+  ctx.strokeStyle = '#FF7FA3'; ctx.lineWidth = 3.2; ctx.beginPath(); ctx.moveTo(-8, -28); ctx.quadraticCurveTo(1, -24, 10, -28); ctx.stroke();
+  ctx.fillStyle = '#FFE59A'; ctx.strokeStyle = OUT; ctx.lineWidth = 1.4; circle(1, -24.5, 2.4); ctx.fill(); ctx.stroke();
+  ctx.lineWidth = 2;
+  const hx = 2, hy = -43;
+  ctx.beginPath(); ctx.ellipse(hx, hy, 18, 15.5, 0, 0, Math.PI*2); ctx.fillStyle = FUR; ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(hx + 8, hy - 3, 6, 6, 0, 0, Math.PI*2); ctx.fillStyle = PATCH; ctx.fill();
+  const flap = Math.sin(t*5)*.12;
+  ctx.fillStyle = EAR;
+  ctx.save(); ctx.translate(hx - 14, hy - 9); ctx.rotate(.35 + flap); ctx.beginPath(); ctx.ellipse(0, 7, 6, 11, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke(); ctx.restore();
+  ctx.save(); ctx.translate(hx + 14, hy - 9); ctx.rotate(-.35 - flap); ctx.beginPath(); ctx.ellipse(0, 7, 6, 11, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke(); ctx.restore();
+  chibiFace(hx, hy, t + 1.7, 1);
+  ctx.fillStyle = '#4A2A38'; ctx.beginPath(); ctx.ellipse(hx + 1, hy + 4, 2.6, 1.9, 0, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#FF8FA8'; ctx.beginPath(); ctx.ellipse(hx + 1, hy + 9.5, 2.2, 2.6, 0, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#4A2A38'; ctx.lineWidth = 1.3;
+  ctx.beginPath(); ctx.moveTo(hx - 3, hy + 6.5); ctx.quadraticCurveTo(hx - 1, hy + 8.5, hx + 1, hy + 6.5); ctx.quadraticCurveTo(hx + 3, hy + 8.5, hx + 5, hy + 6.5); ctx.stroke();
+  ctx.restore();
+  const hb = Math.sin(t*4)*3;
+  ctx.save(); ctx.lineWidth = 2; ctx.strokeStyle = '#7A4A5C'; ctx.fillStyle = '#FF6F91';
+  heartPath(sx - 2, by - jump - 92 + hb, 20); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.beginPath(); ctx.ellipse(sx - 7, by - jump - 85 + hb, 2.5, 1.6, -.6, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+function drawObs(o, sx, t){
+  const y = GY;
+  ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.strokeStyle = INK; ctx.lineWidth = 2.2;
+  if(o.type==='puddle' || o.type==='wide'){
+    ctx.beginPath(); ctx.ellipse(sx, y + 2, o.w/2, 7, 0, 0, Math.PI*2); ctx.fillStyle = '#8ECFF0'; ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.beginPath(); ctx.ellipse(sx - o.w*.18, y, o.w*.12, 2, 0, 0, Math.PI*2); ctx.fill();
+    const rr = (t*1.2 + o.hue) % 1; ctx.strokeStyle = `rgba(255,255,255,${.7*(1-rr)})`; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.ellipse(sx + o.w*.12, y + 2, 4 + rr*10, 1.5 + rr*3, 0, 0, Math.PI*2); ctx.stroke();
+  } else if(o.type==='snail'){
+    const wob = Math.sin(t*6)*1;
+    ctx.beginPath(); ctx.moveTo(sx - 18, y); ctx.quadraticCurveTo(sx - 20, y - 9, sx - 12, y - 9); ctx.lineTo(sx + 14, y - 5); ctx.quadraticCurveTo(sx + 18, y, sx + 14, y); ctx.closePath();
+    ctx.fillStyle = '#F7E3C4'; ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sx - 14, y - 9); ctx.lineTo(sx - 17, y - 19 + wob); ctx.moveTo(sx - 10, y - 9); ctx.lineTo(sx - 9, y - 19 - wob); ctx.stroke();
+    ctx.fillStyle = INK; circle(sx - 17, y - 20 + wob, 2); ctx.fill(); circle(sx - 9, y - 20 - wob, 2); ctx.fill();
+    circle(sx + 3, y - 13, 11); ctx.fillStyle = '#F2A5C0'; ctx.fill(); ctx.stroke();
+    ctx.beginPath(); for(let a=0;a<10;a+=.3){ const r = 9 - a*.85; const px = sx + 3 + Math.cos(a)*r, py = y - 13 + Math.sin(a)*r; a===0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py); } ctx.lineWidth = 1.6; ctx.stroke();
+  } else if(o.type==='yarn'){
+    const cx = sx, cy = y - 15;
+    ctx.beginPath(); ctx.moveTo(cx + 12, cy + 9); ctx.quadraticCurveTo(cx + 26, cy + 18, cx + 36, cy + 14); ctx.strokeStyle = '#7FB7E8'; ctx.lineWidth = 2; ctx.stroke();
+    circle(cx, cy, 15); ctx.fillStyle = ['#A9D3FF','#B8E6C9','#FFD08A'][Math.floor(o.hue*3)]; ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 2.2; ctx.stroke();
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(-o.rot); ctx.lineWidth = 1.4;
+    for(let k=-2;k<=2;k++){ ctx.beginPath(); ctx.ellipse(0, k*5, 14*Math.sqrt(1 - (k*5/15)**2), 2.5, 0, 0, Math.PI*2); ctx.stroke(); }
+    ctx.restore();
+  } else if(o.type==='cucumber'){
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(sx - 10, y - 38, 20, 38, 10) : ctx.rect(sx - 10, y - 38, 20, 38);
+    ctx.fillStyle = '#8FD18B'; ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#5FA85E'; [[-4,-30],[3,-24],[-3,-14],[4,-8]].forEach(p => { circle(sx + p[0], y + p[1], 1.4); ctx.fill(); });
+    ctx.fillStyle = INK; circle(sx - 4, y - 22, 1.8); ctx.fill(); circle(sx + 4, y - 22, 1.8); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(sx - 7, y - 27); ctx.lineTo(sx - 2, y - 25); ctx.moveTo(sx + 7, y - 27); ctx.lineTo(sx + 2, y - 25); ctx.lineWidth = 1.6; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sx - 2, y - 17); ctx.lineTo(sx + 2, y - 17); ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawSpring(sx, sq, th){
+  const k = Math.max(0, sq);
+  ctx.save(); ctx.translate(sx, GY); ctx.scale(1 + k*.25, 1 - k*.3);
+  ctx.lineWidth = 2; ctx.strokeStyle = INK; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.rect(-6, -15, 12, 15); ctx.fillStyle = '#FFF3E6'; ctx.fill(); ctx.stroke();
+  ctx.fillStyle = INK; circle(-2.5, -8, 1.3); ctx.fill(); circle(2.5, -8, 1.3); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0, -15, 18, 13, 0, Math.PI, 0); ctx.closePath(); ctx.fillStyle = th===2 ? '#FF8FB1' : '#FF6F91'; ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#FFFFFF'; circle(-8, -20, 2.8); ctx.fill(); circle(2, -24, 2.3); ctx.fill(); circle(10, -18, 2); ctx.fill();
+  ctx.restore();
+}
+function drawPlat(a, b, h, th){
+  const y = GY - h, cols = ['#FFFFFF','#F1EDFA','#F2C98A','#9C8BD6','#6A5FB8'];
+  ctx.save(); ctx.lineWidth = 2; ctx.strokeStyle = INK; ctx.fillStyle = cols[th];
+  if(th===2){
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(a, y, b - a, 16, 6) : ctx.rect(a, y, b - a, 16); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#C98F4E'; for(let x = a + 12; x < b - 6; x += 18){ circle(x, y + 8, 1.6); ctx.fill(); }
+  } else {
+    ctx.beginPath(); ctx.moveTo(a + 8, y + 16);
+    for(let x = a + 8; x < b - 8; x += 20){ ctx.arc(x + 10, y + 6, 11, Math.PI, 0); }
+    ctx.lineTo(b - 6, y + 16); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fillRect(a + 14, y + 2, (b - a)*.35, 3);
+  }
+  ctx.restore();
+}
+function drawPw(x, y, type, t){
+  const yy = y + Math.sin(t*3 + x)*4;
+  ctx.save();
+  const g = ctx.createRadialGradient(x, yy, 2, x, yy, 26); g.addColorStop(0, type==='magnet' ? 'rgba(170,240,190,.8)' : 'rgba(255,190,210,.8)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g; circle(x, yy, 26); ctx.fill();
+  circle(x, yy, 15); ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 1.8; ctx.stroke();
+  if(type==='magnet'){
+    ctx.fillStyle = '#7CCB8A';
+    ctx.beginPath(); ctx.ellipse(x - 4, yy - 1, 4, 8, -.6, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(x + 4, yy - 1, 4, 8, .6, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, yy + 3); ctx.lineTo(x, yy + 10); ctx.stroke();
+  } else {
+    ctx.fillStyle = '#FF7FA3'; heartPath(x, yy - 8, 16); ctx.fill(); ctx.stroke();
+  }
+  ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.beginPath(); ctx.ellipse(x - 7, yy - 8, 3, 1.8, -.7, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+function drawGold(x, y, t){
+  ctx.save();
+  const g = ctx.createRadialGradient(x, y, 2, x, y, 26); g.addColorStop(0, 'rgba(255,220,100,.75)'); g.addColorStop(1, 'rgba(255,220,100,0)');
+  ctx.fillStyle = g; circle(x, y, 26); ctx.fill(); ctx.restore();
+  drawFish(x, y, 1.35, '#FFD54A');
+  ctx.save(); ctx.fillStyle = '#FF6F91'; heartPath(x + 1, y - 4, 7); ctx.fill();
+  ctx.translate(x + 14, y - 12); ctx.rotate(t*2); ctx.fillStyle = '#FFFFFF';
+  ctx.beginPath(); for(let i=0;i<8;i++){ const r = i%2 ? 1.5 : 5, a = i*Math.PI/4; ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r); } ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+function drawDew(sx, h, t){
+  const y = GY - h + Math.sin(t*3)*3;
+  ctx.save();
+  const pulse = 1 + Math.sin(t*4)*.15;
+  const g = ctx.createRadialGradient(sx, y, 2, sx, y, 26*pulse); g.addColorStop(0, 'rgba(190,235,255,.85)'); g.addColorStop(1, 'rgba(190,235,255,0)');
+  ctx.fillStyle = g; circle(sx, y, 26*pulse); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(sx, y - 13); ctx.bezierCurveTo(sx + 3, y - 7, sx + 9, y - 2, sx + 9, y + 3); ctx.arc(sx, y + 3, 9, 0, Math.PI); ctx.bezierCurveTo(sx - 9, y - 2, sx - 3, y - 7, sx, y - 13); ctx.closePath();
+  const gg = ctx.createLinearGradient(sx, y - 13, sx, y + 12); gg.addColorStop(0, '#E4F7FF'); gg.addColorStop(1, '#7CC8F0');
+  ctx.fillStyle = gg; ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(sx - 3, y + 1, 2, 3.5, -.3, 0, Math.PI*2); ctx.fill();
+  ctx.translate(sx + 12, y - 12); ctx.rotate(t*2); ctx.fillStyle = '#FFE59A';
+  ctx.beginPath(); for(let i=0;i<8;i++){ const r = i%2 ? 2 : 6, a = i*Math.PI/4; ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r); } ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+function drawFlag(sx, t, dark){
+  ctx.save(); ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(sx, GY); ctx.lineTo(sx, GY - 86); ctx.stroke();
+  const w = Math.sin(t*5)*3;
+  ctx.fillStyle = '#FF6F91'; ctx.lineWidth = 2.2;
+  heartPath(sx + 18 + w*.3, GY - 88 + w*.2, 30); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = dark ? '#FFE59A' : INK; ctx.font = '15px "ZCOOL KuaiLe", sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('终点', sx + 18, GY - 96);
+  ctx.restore();
+}
+
+/* ---------- backgrounds ---------- */
+function drawBG(th){
+  const T = THEMES[th], t = G.t;
+  const g = ctx.createLinearGradient(0, 0, 0, GY); g.addColorStop(0, T.sky[0]); g.addColorStop(1, T.sky[1]);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, VW, GY);
+  // faint grid paper
+  ctx.strokeStyle = T.grid; ctx.lineWidth = .7; ctx.beginPath();
+  const go = (G.camX*.1) % 26;
+  for(let x = -go; x < VW; x += 26){ ctx.moveTo(x, 0); ctx.lineTo(x, GY); }
+  for(let y = GY % 26; y < GY; y += 26){ ctx.moveTo(0, y); ctx.lineTo(VW, y); }
+  ctx.stroke();
+  if(th===0){
+    ctx.fillStyle = 'rgba(255,241,201,.6)'; circle(VW*.8, GY*.28, 46); ctx.fill(); ctx.fillStyle = '#FFF1C9'; circle(VW*.8, GY*.28, 30); ctx.fill();
+    layer(.08, 260, (x,k) => { const y = GY*(.15 + hsh(k)*.2); ctx.fillStyle = 'rgba(255,255,255,.85)'; circle(x, y, 16); ctx.fill(); circle(x + 18, y - 6, 20); ctx.fill(); circle(x + 38, y, 15); ctx.fill(); });
+    hills('#FCD3DF', .22, 46, 30);
+    layer(.55, 210, (x,k) => tree(x + hsh(k)*60, GY - 8, .8 + hsh(k+3)*.4));
+  } else if(th===1){
+    layer(.06, 220, (x,k) => { ctx.fillStyle = 'rgba(160,160,190,.45)'; const y = GY*(.12 + hsh(k)*.15); ctx.beginPath(); ctx.ellipse(x, y, 60, 18, 0, 0, Math.PI*2); ctx.fill(); });
+    layer(.25, 64, (x,k) => { const h = 50 + hsh(k)*70; ctx.fillStyle = '#B5B7D4'; ctx.fillRect(x, GY - h, 52, h); ctx.fillStyle = 'rgba(255,255,255,.35)'; for(let wy = GY - h + 10; wy < GY - 14; wy += 16){ ctx.fillRect(x + 9, wy, 9, 8); ctx.fillRect(x + 32, wy, 9, 8); } });
+    layer(.6, 250, (x,k) => { lamp(x, false); umbrella(x + 110 + hsh(k)*40, GY, ['#FF9EB8','#A8E6D2','#FFE59A','#C7B2F0'][k & 3]); });
+  } else if(th===2){
+    hills('#FFD7B0', .2, 40, 26);
+    layer(.55, 230, (x,k) => shop(x, k));
+  } else if(th===3){
+    starsBg(40, .5);
+    ctx.fillStyle = 'rgba(255,243,196,.25)'; circle(VW*.78, GY*.22, 44); ctx.fill(); ctx.fillStyle = '#FFF3C4'; circle(VW*.78, GY*.22, 26); ctx.fill();
+    ctx.fillStyle = THEMES[3].sky[0]; circle(VW*.78 + 11, GY*.22 - 7, 22); ctx.fill();
+    layer(.25, 90, (x,k) => house(x, k));
+    layer(.6, 260, (x) => lamp(x, true));
+  } else if(th===4){
+    starsBg(110, 1);
+    if(G.shoot){ const s = G.shoot; ctx.strokeStyle = `rgba(255,255,255,${s.life})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x - 60, s.y - 24); ctx.stroke(); }
+    hills('#241F4E', .2, 50, 34);
+    layer(.5, 180, (x,k) => { ctx.fillStyle = '#2E2862'; ctx.beginPath(); ctx.moveTo(x, GY); ctx.lineTo(x + 14, GY - 46 - hsh(k)*30); ctx.lineTo(x + 28, GY); ctx.fill(); });
+  }
+  // ground
+  ctx.fillStyle = T.ground; ctx.fillRect(0, GY, VW, VH - GY);
+  ctx.fillStyle = T.lip; ctx.fillRect(0, GY, VW, 5);
+  layer(1, 58, (x,k) => {
+    const y = GY + 16 + hsh(k)*22;
+    if(th===0){ ctx.fillStyle = '#FFFFFF'; for(let i=0;i<5;i++){ circle(x + Math.cos(i*1.26)*3.2, y + Math.sin(i*1.26)*3.2, 2.2); ctx.fill(); } ctx.fillStyle = '#FFD36E'; circle(x, y, 1.8); ctx.fill(); }
+    else if(th===1){ ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.ellipse(x, y, 10, 2.5, 0, 0, Math.PI*2); ctx.fill(); }
+    else if(th===2){ ctx.fillStyle = ['#FF9EB8','#A8E6D2','#FFFFFF','#FF9A62'][k & 3]; ctx.save(); ctx.translate(x, y); ctx.rotate(hsh(k)*3); ctx.fillRect(-4, -1.2, 8, 2.4); ctx.restore(); }
+    else { ctx.fillStyle = 'rgba(255,229,154,.5)'; circle(x, y, 1.3); ctx.fill(); }
+  });
+}
+function hills(col, par, base, amp){
+  const off = G.camX*par; ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, GY);
+  for(let x = 0; x <= VW + 8; x += 8){ const u = x + off; ctx.lineTo(x, GY - base - amp*Math.sin(u*.006) - amp*.45*Math.sin(u*.017 + 1)); }
+  ctx.lineTo(VW, GY); ctx.closePath(); ctx.fill();
+}
+function tree(x, by, s){
+  ctx.save(); ctx.translate(x, by); ctx.scale(s, s);
+  ctx.fillStyle = '#C9957F'; ctx.fillRect(-4, -46, 8, 46);
+  [[0,-62,22,'#FFB7CB'],[-18,-52,16,'#FFC9D7'],[18,-52,17,'#FF9EB8'],[-8,-76,15,'#FFC9D7'],[10,-74,16,'#FFB7CB']].forEach(c => { ctx.fillStyle = c[3]; circle(c[0], c[1], c[2]); ctx.fill(); });
+  ctx.restore();
+}
+function lamp(x, glow){
+  ctx.save();
+  if(glow){ const g = ctx.createRadialGradient(x, GY - 92, 2, x, GY - 92, 60); g.addColorStop(0, 'rgba(255,215,130,.55)'); g.addColorStop(1, 'rgba(255,215,130,0)'); ctx.fillStyle = g; circle(x, GY - 92, 60); ctx.fill(); }
+  ctx.strokeStyle = glow ? '#2A2550' : '#8E89B2'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x, GY); ctx.lineTo(x, GY - 86); ctx.stroke();
+  ctx.fillStyle = glow ? '#FFD782' : '#E9E4F5'; circle(x, GY - 92, 7); ctx.fill();
+  ctx.restore();
+}
+function umbrella(x, by, col){
+  ctx.save(); ctx.strokeStyle = '#7A7598'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, by); ctx.lineTo(x, by - 40); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x, by); ctx.quadraticCurveTo(x + 6, by + 2, x + 6, by - 4); ctx.stroke();
+  ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x - 26, by - 40); ctx.quadraticCurveTo(x, by - 70, x + 26, by - 40);
+  for(let i=0;i<4;i++){ ctx.quadraticCurveTo(x + 26 - i*13 - 6.5, by - 46, x + 13 - i*13, by - 40); }
+  ctx.fill(); ctx.restore();
+}
+function shop(x, k){
+  const cols = ['#FFC2D4','#BDEBDD','#FFE59A','#D9C9F5'], c = cols[k & 3], h = 120 + hsh(k)*40, w = 170;
+  ctx.save();
+  ctx.fillStyle = c; ctx.fillRect(x, GY - h, w, h);
+  ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.fillRect(x + 18, GY - h*.55, 60, 44); ctx.fillRect(x + 98, GY - 62, 46, 62);
+  for(let i=0;i<9;i++){ ctx.fillStyle = i%2 ? '#FFFFFF' : '#E8668C'; ctx.beginPath(); const ax = x + i*w/9, aw = w/9; ctx.moveTo(ax, GY - h*.7); ctx.lineTo(ax + aw, GY - h*.7); ctx.lineTo(ax + aw, GY - h*.7 + 14); ctx.arc(ax + aw/2, GY - h*.7 + 14, aw/2, 0, Math.PI); ctx.closePath(); ctx.fill(); }
+  ctx.fillStyle = '#FFFDF8'; ctx.strokeStyle = 'rgba(107,59,78,.5)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.ellipse(x + w/2, GY - h + 18, 36, 12, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = INK; ctx.font = '13px "ZCOOL KuaiLe", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(['草莓蛋糕','布丁','冰淇淋','奶茶','甜甜圈'][Math.floor(hsh(k + 7)*5)], x + w/2, GY - h + 19);
+  ctx.restore();
+}
+function house(x, k){
+  const h = 40 + hsh(k)*40;
+  ctx.fillStyle = '#3A3470'; ctx.fillRect(x, GY - h, 64, h);
+  ctx.beginPath(); ctx.moveTo(x - 6, GY - h); ctx.lineTo(x + 32, GY - h - 26); ctx.lineTo(x + 70, GY - h); ctx.fill();
+  for(let i=0;i<2;i++){ const lit = hsh(k*3 + i) > .3; ctx.fillStyle = lit ? '#FFD27A' : '#2B2659'; ctx.fillRect(x + 12 + i*26, GY - h + 12, 13, 13); }
+}
+function starsBg(n, par){
+  for(let i=0;i<n;i++){
+    let x = (hsh(i)*VW*1.5 - G.camX*.03*par) % (VW*1.5); if(x < 0) x += VW*1.5;
+    const y = hsh(i + 99)*GY*.75, tw = .45 + .55*Math.abs(Math.sin(G.t*1.5 + i));
+    ctx.fillStyle = `rgba(255,250,230,${tw})`; circle(x, y, hsh(i + 5) < .15 ? 1.8 : 1); ctx.fill();
+  }
+}
+function updateAmbient(dt, th){
+  const a = G.amb;
+  const rate = [3, 40, 3, 1.5, 0][th];
+  if(Math.random() < rate*dt && a.length < 140){
+    if(th===0) a.push({k:'petal', x:Math.random()*VW*1.2, y:-10, vx:-20 - Math.random()*20, vy:24 + Math.random()*20, r:Math.random()*6, life:9});
+    if(th===1) for(let i=0;i<2;i++) a.push({k:'rain', x:Math.random()*VW*1.2, y:-10, vx:-60, vy:420, life:2});
+    if(th===2) a.push({k:'sprinkle', x:Math.random()*VW, y:-10, vx:(Math.random()-.5)*20, vy:30 + Math.random()*20, r:Math.random()*6, c:['#FF9EB8','#A8E6D2','#FFE59A','#FF9A62'][Math.floor(Math.random()*4)], life:9});
+    if(th===3) a.push({k:'fly', x:Math.random()*VW, y:GY - 20 - Math.random()*120, vx:(Math.random()-.5)*20, vy:(Math.random()-.5)*14, life:4});
+  }
+  for(let i=a.length-1;i>=0;i--){ const p = a[i]; p.x += p.vx*dt; p.y += p.vy*dt; p.life -= dt; if(p.r !== undefined) p.r += dt*2; if(p.k==='petal') p.x += Math.sin(G.t*2 + i)*.3; if(p.life <= 0 || p.y > GY + 10) a.splice(i, 1); }
+  if(th===4){ if(!G.shoot && Math.random() < dt*.25) G.shoot = {x:VW*(.3 + Math.random()*.6), y:GY*(.05 + Math.random()*.2), life:1}; if(G.shoot){ G.shoot.x += 260*dt; G.shoot.y += 104*dt; G.shoot.life -= dt*1.2; if(G.shoot.life <= 0) G.shoot = null; } }
+}
+function drawAmbient(){
+  for(const p of G.amb){
+    if(p.k==='petal'){ ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = 'rgba(255,170,195,.9)'; ctx.beginPath(); ctx.ellipse(0, 0, 4.5, 2.6, 0, 0, Math.PI*2); ctx.fill(); ctx.restore(); }
+    else if(p.k==='rain'){ ctx.strokeStyle = 'rgba(120,130,190,.45)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - 3, p.y + 12); ctx.stroke(); }
+    else if(p.k==='sprinkle'){ ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c; ctx.fillRect(-4, -1.2, 8, 2.4); ctx.restore(); }
+    else if(p.k==='fly'){ const a = Math.min(1, p.life)*(.5 + .5*Math.sin(G.t*6 + p.x)); ctx.fillStyle = `rgba(255,229,140,${a})`; circle(p.x, p.y, 2.2); ctx.fill(); ctx.fillStyle = `rgba(255,229,140,${a*.25})`; circle(p.x, p.y, 7); ctx.fill(); }
+  }
+}
+function updateParts(dt){
+  for(let i=G.parts.length-1;i>=0;i--){ const p = G.parts[i]; p.x += p.vx*dt; p.y += p.vy*dt; p.vy += (p.g||0)*dt; p.life -= dt; if(p.rot !== undefined) p.rot += dt*3; if(p.life <= 0) G.parts.splice(i, 1); }
+  for(let i=G.floats.length-1;i>=0;i--){ const f = G.floats[i]; f.y -= 40*dt; f.life -= dt; if(f.life <= 0) G.floats.splice(i, 1); }
+}
+function drawParts(){
+  for(const p of G.parts){
+    const a = Math.max(0, Math.min(1, p.life/p.max*1.5));
+    ctx.save(); ctx.globalAlpha = a;
+    if(p.kind==='dot'){ ctx.fillStyle = p.col; circle(p.x, p.y, p.s); ctx.fill(); }
+    else if(p.kind==='star'){ ctx.translate(p.x, p.y); ctx.fillStyle = p.col; ctx.beginPath(); for(let i=0;i<8;i++){ const r = i%2 ? p.s*.35 : p.s, an = i*Math.PI/4; ctx.lineTo(Math.cos(an)*r, Math.sin(an)*r); } ctx.closePath(); ctx.fill(); }
+    else if(p.kind==='heart'){ ctx.fillStyle = p.col; heartPath(p.x, p.y - p.s, p.s*2); ctx.fill(); }
+    else if(p.kind==='rect'){ ctx.translate(p.x, p.y); ctx.rotate(p.rot || 0); ctx.fillStyle = p.col; ctx.fillRect(-p.s/2, -p.s/4, p.s, p.s/2); }
+    else if(p.kind==='fish'){ drawFish(p.x, p.y, .7, p.col, p.rot || 0); }
+    ctx.restore();
+  }
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for(const f of G.floats){ ctx.font = (f.big ? 24 : 18) + 'px "ZCOOL KuaiLe", sans-serif'; ctx.globalAlpha = Math.max(0, Math.min(1, f.life)); ctx.fillStyle = f.col; ctx.fillText(f.text, f.x, f.y); }
+  ctx.globalAlpha = 1;
+}
+
+/* ---------- main draw ---------- */
+function draw(){
+  ctx.setTransform(dpr*S, 0, 0, dpr*S, 0, 0);
+  const th = G.lvl, T = THEMES[th];
+  let shx = 0; if(G.shake > 0){ shx = (Math.random() - .5)*6; }
+  ctx.save(); ctx.translate(shx, 0);
+  drawBG(th);
+  const L = LEVELS[th], camX = G.camX, t = G.t, inView = x => x > -80 && x < VW + 80;
+  if(th < 4){ const fx = L.len - camX; if(inView(fx)) drawFlag(fx, t, T.dark); }
+  else { const dx = L.len + 60 - camX; if(inView(dx)) drawDog(dx, GY, t, (G.arrived && (G.state==='meet' || G.state==='final')) ? Math.abs(Math.sin(t*5))*12 : 0); }
+  if(G.state !== 'title'){
+    for(const p of G.plats){ const a = p.x0 - camX, b = p.x1 - camX; if(b > -40 && a < VW + 40) drawPlat(a, b, p.h, th); }
+    for(const sp of G.springs){ const sx = sp.x - camX; if(inView(sx)) drawSpring(sx, sp.sq, th); }
+    if(G.dew && !G.dew.got){ const dx = G.dew.x - camX; if(inView(dx)) drawDew(dx, G.dew.h, t); }
+    for(const f of G.fish){
+      if(f.got || f.gone) continue; const fx = f.x - camX; if(!inView(fx)) continue;
+      const fy = GY - f.h + (f.fly || f.rain ? 0 : Math.sin(t*3 + f.x*.05)*2.5);
+      if(f.rain && f.landT > 1.2) ctx.globalAlpha = Math.max(0, (1.8 - f.landT)/0.6);
+      if(f.gold) drawGold(fx, fy, t); else drawFish(fx, fy, 1, f.c);
+      ctx.globalAlpha = 1;
+    }
+    for(const p of G.pws){ if(p.got) continue; const px = p.x - camX; if(inView(px)) drawPw(px, GY - p.h, p.type, t); }
+    for(const o of G.obs){ const ox = o.x - camX; if(inView(ox)) drawObs(o, ox, t); }
+  }
+  const c = G.cat;
+  const alpha = G.inv > 0 && Math.floor(G.t*12) % 2 ? .35 : 1;
+  const catSX = G.state==='title' ? VW*CAT_SX : c.x - camX;
+  const air = G.state!=='title' && !c.ground;
+  const catT = G.state==='title' ? G.t : ((G.state==='meet' || G.state==='final') && G.arrived ? 0 : G.animT);
+  drawCat(catSX, GY - (G.state==='title' ? 0 : c.h) - ((G.state==='final') ? Math.abs(Math.sin(t*5 + 1))*10 : 0), catT, air, alpha);
+  if(G.state==='play' || G.state==='intro'){
+    const cyS = GY - c.h - 30;
+    if(G.shield){ ctx.save(); circle(catSX + 1, cyS, 38); ctx.fillStyle = 'rgba(255,170,200,.18)'; ctx.fill(); ctx.strokeStyle = 'rgba(255,111,145,.7)'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.beginPath(); ctx.ellipse(catSX - 16, cyS - 20, 6, 3, -.7, 0, Math.PI*2); ctx.fill(); ctx.restore(); }
+    if(G.magnet > 0){ ctx.save(); ctx.translate(catSX + 1, cyS); ctx.rotate(t*2); ctx.setLineDash([6, 7]); ctx.strokeStyle = `rgba(110,200,130,${G.magnet < 1.5 ? .4 + .4*Math.sin(t*20) : .8})`; ctx.lineWidth = 2.5; circle(0, 0, 44); ctx.stroke(); ctx.restore(); }
+  }
+  ctx.restore();
+  drawAmbient();
+  drawParts();
+}
+
+/* ---------- loop ---------- */
+let last = performance.now();
+function frame(now){
+  const dt = Math.min(.05, (now - last)/1000); last = now;
+  G.t += dt; if(G.shake > 0) G.shake -= dt;
+  if(G.state==='title'){ G.camX += 70*dt; }
+  else if(G.state==='play') updatePlay(dt);
+  else if(G.state==='meet' || G.state==='final'){
+    updateMeet(dt);
+    if(G.state==='final'){ G.fwT = (G.fwT||0) - dt; if(G.fwT <= 0){ G.fwT = .9 + Math.random()*.6; firework(VW*(.15 + Math.random()*.7), GY*(.15 + Math.random()*.4)); } }
+  }
+  updateAmbient(dt, G.lvl);
+  updateParts(dt);
+  if(G.state==='play') updateHUD();
+  draw();
+  requestAnimationFrame(frame);
+}
+showTitle();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
